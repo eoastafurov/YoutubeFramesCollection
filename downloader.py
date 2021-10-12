@@ -63,7 +63,8 @@ class YTVideo:
         :param tc: time code (h:m:s)
         :return: num of associated frame
         """
-        return int(np.array([int(num) for num in tc.split(':')]) @ np.array([60 ** 2, 60, 1])) * int(self.fps)
+        return int(np.array([int(num) for num in tc.split(':')]) @
+                   np.array([60 ** 2, 60, 1])) * int(self.fps)
 
     def get_frames_limits(self) -> (int, int):
         """
@@ -95,7 +96,11 @@ class YTVideo:
 
         frames_to_save = self.frames_between_tc
 
-        for frame in tqdm(frames_to_save, desc='Saving frames...', colour='blue'):
+        for frame in tqdm(
+                frames_to_save,
+                desc='Saving frames...',
+                colour='blue'
+        ):
             name = gen_rand_name()
             while os.path.exists(name):
                 name = gen_rand_name()
@@ -146,6 +151,7 @@ class FramesProcessing:
     """
     Class for processing methods
     """
+
     @staticmethod
     def process_video(ytvideo: YTVideo) -> YTVideo:
         """
@@ -154,7 +160,9 @@ class FramesProcessing:
         :param ytvideo: video
         :return: video with filled values
         """
-        ytvideo.stream = pafy.new(ytvideo.video_url, ydl_opts={"--no-check-certificate": True}).videostreams[0]
+        ytvideo.stream = pafy.new(
+            ytvideo.video_url, ydl_opts={"--no-check-certificate": True}
+        ).videostreams[0]
         ytvideo.stream_resolution = ytvideo.stream.resolution
         ytvideo.whole_video_size = ytvideo.stream.get_filesize() / 1024 ** 2
         ytvideo.videocap = cv2.VideoCapture(ytvideo.stream.url)
@@ -174,7 +182,11 @@ class FramesProcessing:
         frames_to_read = (ytvideo.end_frame - ytvideo.begin_frame) // frames_step
         curr_num_of_read = 0
 
-        progress_bar = tqdm(total=frames_to_read, desc='Frames gathering...', colour='green')
+        progress_bar = tqdm(
+            total=frames_to_read,
+            desc='Frames gathering...',
+            colour='green'
+        )
         while ytvideo.videocap.isOpened():
             status, frame = ytvideo.videocap.read()
             progress_bar.update(1)
