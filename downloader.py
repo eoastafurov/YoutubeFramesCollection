@@ -9,8 +9,13 @@ import warnings
 
 random.seed(2021)
 
-
 frames_skipping_table = {
+    """
+    Mapping between the density of useful frames 
+    and frames step when reading video, 
+    e.g. when density assume to be low, 
+    we will each 80 frame
+    """
     'extremely low': 900,
     'super super low': 300,
     'super low': 180,
@@ -24,6 +29,11 @@ frames_skipping_table = {
 
 
 class YTVideo:
+    """
+    This class stores meta- and process- information
+    about associated YouTube video
+    """
+
     def __init__(self, video_description: {}):
         # Information from json
         self.video_url = video_description['link']
@@ -48,23 +58,41 @@ class YTVideo:
         self.title = None
 
     def convert_tc_to_frame(self, tc: str) -> int:
-        return int(np.array([int(num) for num in tc.split(':')]) @ np.array([60**2, 60, 1])) * int(self.fps)
+        """
+        Converting given time code to frame number
+        :param tc: time code (h:m:s)
+        :return: num of associated frame
+        """
+        return int(np.array([int(num) for num in tc.split(':')]) @ np.array([60 ** 2, 60, 1])) * int(self.fps)
 
     def get_frames_limits(self) -> (int, int):
+        """
+        Get numerical limits of frames between whom
+        needed frames located
+        :return: left border, right border
+        """
         return self.convert_tc_to_frame(self.begin_tc), self.convert_tc_to_frame(self.end_tc)
 
     def save_frames(self, path_to_dataset_root: str):
+        """
+        Save self frames to dataset path. Each frame name will be random
+        :param path_to_dataset_root:
+            -- ends with '/' sym
+            -- contains subdir for label
+        :return: None
+        """
+
         def gen_rand_name():
             return path_to_dataset_root \
                    + self.label + '/' \
-                   + str(int(random.random() * 10**6)) \
+                   + str(int(random.random() * 10 ** 6)) \
                    + '.jpg'
-        assert self.frames_between_tc is not None
-        assert len(self.frames_between_tc) > 0
-        assert os.path.exists(path_to_dataset_root)
-        assert path_to_dataset_root.endswith('/')
 
-        # frames_to_save = self.frames_between_tc[::frames_skipping_table[self.frames_density]]
+        assert self.frames_between_tc is not None, 'Frames to  save shouldn t be none'
+        assert len(self.frames_between_tc) > 0, 'Nothing to save'
+        assert os.path.exists(path_to_dataset_root), 'Dataset dir should exists'
+        assert path_to_dataset_root.endswith('/'), 'Error in args'
+
         frames_to_save = self.frames_between_tc
 
         for frame in tqdm(frames_to_save, desc='Saving frames...', colour='blue'):
@@ -75,29 +103,57 @@ class YTVideo:
 
 
 class JsonParser:
+    """
+    Class for parsing '.json' files with videos meta inf
+    """
+
     def __init__(self, path_to_json: str):
         with open(path_to_json, 'r') as file:
             self.path_to_json = path_to_json
             self.videos = json.load(file)['videos']
 
     def get_next_video(self) -> (YTVideo, int):
+        """
+        Get next unprocessed video from file
+        (the first marked as non processed)
+        :return: YTVideo and its index in videos
+        """
         for i in range(len(self.videos)):
             if self.videos[i]['is_processed'] is False:
                 return YTVideo(self.videos[i]), i
         return None, None
 
     def set_processed_status(self, idx: int):
+        """
+        Mark idx video as processed and
+        dump self into json
+        :param idx: idx of the video in self.videos
+        :return: None
+        """
         self.videos[idx]['is_processed'] = True
         self.dump_into_json()
 
     def dump_into_json(self):
+        """
+        Dump self into json with readable format
+        :return: None
+        """
         with open(self.path_to_json, 'w') as file:
             json.dump({'videos': self.videos}, file, indent=4)
 
 
 class FramesProcessing:
+    """
+    Class for processing methods
+    """
     @staticmethod
     def process_video(ytvideo: YTVideo) -> YTVideo:
+        """
+        Process video to obtain all needed meta,
+        fill None values in YTVideo
+        :param ytvideo: video
+        :return: video with filled values
+        """
         ytvideo.stream = pafy.new(ytvideo.video_url, ydl_opts={"--no-check-certificate": True}).videostreams[0]
         ytvideo.stream_resolution = ytvideo.stream.resolution
         ytvideo.whole_video_size = ytvideo.stream.get_filesize() / 1024 ** 2
@@ -117,9 +173,6 @@ class FramesProcessing:
         frames_step = frames_skipping_table[ytvideo.frames_density]
         frames_to_read = (ytvideo.end_frame - ytvideo.begin_frame) // frames_step
         curr_num_of_read = 0
-
-        # frames_to_read = (ytvideo.end_frame - ytvideo.begin_frame)
-        # curr_num_of_read = 0
 
         progress_bar = tqdm(total=frames_to_read, desc='Frames gathering...', colour='green')
         while ytvideo.videocap.isOpened():
@@ -143,6 +196,9 @@ class FramesProcessing:
 
 
 def process():
+    """
+    Function for processing json file
+    """
     jp = JsonParser('links_n_timecodes.json')
 
     while True:
@@ -164,6 +220,3 @@ def process():
 
 if __name__ == '__main__':
     process()
-
-
-
